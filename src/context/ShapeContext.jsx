@@ -16,7 +16,11 @@ export const ShapesProvider = ({ children }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
+  const [selectedShape, setSelectedShape] = useState([]);
   const _CONNECTION_POINT_OFFSET = 0;
+
+  const [isSelecting, setIsSelecting] = useState(false); // Track if selection is happening
+  const [startPosition, setStartPosition] = useState({ x: 0, y: 0 }); // Initial position
 
   // Save data to localStorage
   const saveData = useCallback((key, data) => localStorage.setItem(key, JSON.stringify(data)), []);
@@ -166,6 +170,11 @@ export const ShapesProvider = ({ children }) => {
       shadowBlur: 10, // Amount of blur
       shadowOffsetX: 5, // Horizontal offset
       shadowOffsetY: 5, // Vertical offse
+
+      data : {
+         // random uid
+        uid: 'dasddaasdasada',
+      }
     };
 
     const updatedElems = [...elems, newElem];
@@ -175,6 +184,7 @@ export const ShapesProvider = ({ children }) => {
 
   // Start drawing a line
   const startLine = (shape, nodeId, point) => {
+
     if (!selectedPoint) {
       setSelectedPoint({ nodeId, position: point.position, x: point.x, y: point.y });
     } else {
@@ -190,13 +200,24 @@ export const ShapesProvider = ({ children }) => {
           { nodeId, position: point.position, x: point.x, y: point.y },
         ],
       };
+      console.log(shape,'start')
+      console.log(selectedPoint,'end')
 
       const updatedLines = [...lines, newLine];
       setLines(updatedLines);
       saveData("lines", updatedLines);
       setSelectedPoint(null);
+      const updatedElems = elems.map((elem) => (elem.id === shape.id ? { ...elem, data : { ...elem.data, lines: updatedLines } } : elem));
+      const updatedElems2 = updatedElems.map((elem) => (elem.id === selectedPoint.nodeId ? { ...elem, data : { ...elem.data, lines: updatedLines } } : elem));
+
+      setElems(updatedElems2);
+      saveData("shapes", updatedElems2);
     }
   };
+
+  useEffect(()=>{
+    console.log(elems,'elems')
+  },[elems])
 
   // Remove a line from the canvas
   const removeLine = (selectedLine) => {
@@ -214,6 +235,90 @@ export const ShapesProvider = ({ children }) => {
     localStorage.removeItem("lines");
   };
 
+  const updateShapeText = (shapeId, newText) =>  {
+    const updatedElems = elems.map((elem) => (elem.id === shapeId ? { ...elem, text: newText } : elem));
+    setElems(updatedElems);
+    saveData("shapes", updatedElems);
+  }
+
+
+const handleSelectionMouseDown = (e) => {
+  if (e.target !== e.target.getStage()) return; // Prevent selection when clicking on shapes
+
+  const stage = stageRef.current;
+  const pointerPos = stage.getPointerPosition(); // Get correct coordinates inside the stage
+
+  // Create selection box
+  const selectionBox = {
+    id: "selectionBox",
+    type: "selectionBox",
+    x: pointerPos.x,
+    y: pointerPos.y,
+    width: 0,
+    height: 0,
+    stroke: "blue",
+    strokeWidth: 2,
+    draggable: false,
+  };
+
+  setStartPosition(pointerPos);
+  setIsSelecting(true);
+  setElems([...elems, selectionBox]);
+};
+
+const handleSelectionMouseMove = (e) => {
+  if (!isSelecting) return; // Do nothing if we're not selecting
+
+  const { clientX, clientY } = e.evt;
+  const stage = stageRef.current;
+  const pointerPos = stage.getPointerPosition();
+
+  const newWidth = pointerPos.x - startPosition.x;
+  const newHeight = pointerPos.y - startPosition.y;
+
+  console.log(newWidth,newHeight)
+
+  // Update the selection box size based on mouse position
+  const updatedSelectionBox = {
+    id: 'selectionBox',
+    type: 'selectionBox',
+    x: startPosition.x,
+    y: startPosition.y,
+    width: newWidth,
+    height: newHeight,
+    stroke: "blue",
+    strokeWidth: 2,
+    draggable: false,
+  };
+
+  const newElems = elems.map((elem) =>
+    elem.id === 'selectionBox' ? updatedSelectionBox : elem
+  );
+  setElems(newElems);
+  saveData("shapes", newElems);
+};
+
+const handleSelectionMouseUp = () => {
+  setIsSelecting(false); // End the selection
+  // remove selection box
+
+  const removedSelectionBox = elems.filter((elem) =>     elem.id !== 'selectionBox' );
+
+  setElems(removedSelectionBox);
+  saveData("shapes", removedSelectionBox);
+};
+
+
+  const selectShape = () =>{
+    setSelectedShape(elems[elems.length - 1].id);
+  }
+ 
+  const deleteSelectedShape = (selectedShapeId) => {
+    const updatedElems = elems.filter((elem) => elem.id !== selectedShapeId);
+    setElems(updatedElems);
+    saveData("shapes", updatedElems);
+  };
+
   return (
     <ShapesContext.Provider
       value={{
@@ -225,6 +330,7 @@ export const ShapesProvider = ({ children }) => {
         addRectangle,
         startLine,
         stageRef,
+        setLines ,
         miniMapRef,
         clearCanvas,
         removeLine,
@@ -234,6 +340,10 @@ export const ShapesProvider = ({ children }) => {
         scale,
         position,
         setPosition,
+        updateShapeText,
+        handleSelectionMouseDown,
+        handleSelectionMouseMove,
+        handleSelectionMouseUp,
       }}
     >
       {children}

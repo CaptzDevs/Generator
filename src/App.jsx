@@ -51,7 +51,11 @@ const MainContent = () => {
 
 // ✅ Grid Stage with Shapes
 const GridStage = () => {
-  const { stageRef, miniMapRef, handleWheel, scale, position, setPosition } = useShapes();
+  const { stageRef, miniMapRef, handleWheel, scale, position, setPosition  ,
+    handleSelectionMouseDown,
+    handleSelectionMouseMove,
+    handleSelectionMouseUp,
+   } = useShapes();
   const [isPanning, setIsPanning] = useState(false);
   const { width : screenWidth , height : screenHeight } = useWindowSize();
 
@@ -106,8 +110,13 @@ const GridStage = () => {
         x={position.x}
         y={position.y}
         draggable={isPanning} // Enable panning only when Ctrl or Space is held
-        onDragMove={handleStageDragMove} // Ensure stage position is updated during drag
+
+         onMouseDown = {(e)=> { handleSelectionMouseDown(e); }}
+         onDragMove = {(e)=> { handleStageDragMove(e) }}
+         onMouseMove={(e)=> handleSelectionMouseMove(e) }
+         onMouseUp = {(e)=> { handleSelectionMouseUp(e) }}
       >
+        
    {/*      <Grid width={screenWidth} height={screenHeight} gridSize={25}/> */}
         {/* <GridRect width={screenWidth} height={screenHeight} gridSize={25} /> */}
         <ShapesLayer />
@@ -242,20 +251,23 @@ const ShapesLayer = () => {
       {renderLines()}
       {elems.map((shape) => (
         <React.Fragment key={shape.id}>
-          {shape.type === "Circle" ? (
+          {shape.type === "Circle" && (
             <Circle
               {...shape}
               onDragMove={(e) => handleDragEnd(shape.id, e)}
               onMouseEnter={() => handleShapeHover(shape.id)}
               onMouseLeave={() => setHoveredShapeId(null)}
             />
-          ) : (
+          ) 
+        }
+          {shape.type === "Rect"  && (
             <>
               <Rect
                 {...shape}
                 onDragMove={(e) => handleDragEnd(shape.id, e)}
                 onMouseEnter={() => handleShapeHover(shape.id)}
                 onMouseLeave={() => setHoveredShapeId(null)}
+                onClick={() => console.log(shape)}
               />
               <Text
                 text={shape.text}
@@ -269,6 +281,13 @@ const ShapesLayer = () => {
               />
             </>
           )}
+
+        {shape.type === "selectionBox"  && (
+           <Rect
+                {...shape}
+              />
+        )}
+
           {renderConnectionPoints(shape)}
         </React.Fragment>
       ))}
@@ -418,9 +437,11 @@ const GridRect = ({ width, height, gridSize }) => {
         stroke="black"
         strokeWidth={1}
       />
+      
     </Layer>
   );
 };
+
 
 
 // ✅ Theme Switch
